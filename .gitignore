@@ -1,0 +1,13 @@
+# secrets - never commit
+*.pem
+*.key
+.env
+.aws/
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform/
+
+# misc
+.DS_Store
+*.log
