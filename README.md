@@ -12,6 +12,7 @@ Daily log of my hands-on journey to becoming a DevOps engineer, learning DevOps 
 | Day | AWS service | DevOps topic | Notes |
 |---|---|---|---|
 | 01 | IAM Roles | Git setup | [notes](day-01/notes.md) |
+| 02 | S3 advanced | Git branching and merge conflicts | [notes](Day-2/notes.md) |
 
 ## Roadmap
 - [x] Week 1: Linux, shell, Git

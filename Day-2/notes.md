@@ -41,3 +41,59 @@
 - Conflicts mean two people changed the same line. Resolve them by editing the file, then add and commit.
 - Check `git status` and `git branch` before starting any new work.
 - On a team, branches are merged through pull requests, not by hand on a laptop.
+
+---
+
+## AWS service: S3 advanced (versioning, lifecycle, bucket policy)
+
+### What I learned
+| Feature | What it does | Why DevOps needs it |
+|---|---|---|
+| Versioning | Keeps every version of an object. A normal delete only adds a delete marker. | Protects Terraform state and artifacts from accidents |
+| Lifecycle rules | Automatically expire old versions and clean up failed uploads | Controls storage cost |
+| Bucket policy | A resource-based policy attached to the bucket | Enforces rules such as "HTTPS only" |
+
+### Identity-based vs resource-based policies
+| | Identity-based | Resource-based |
+|---|---|---|
+| Attached to | A user or role | The resource (bucket, role trust policy) |
+| Has `Principal`? | No | Yes |
+| Example | Day 1 S3 read-only policy | Bucket policy, role trust policy |
+
+The visual editor under IAM > Policies builds identity-based policies, so it never asks for a Principal. A bucket policy must include one.
+
+### What I built
+1. Created a bucket and turned on versioning.
+2. Uploaded a file twice and saw two version IDs with Show versions on.
+3. Deleted the file normally and found the delete marker. Removing the marker brought the file back.
+4. Created a lifecycle rule for the whole bucket that permanently deletes noncurrent versions after 1 day and cleans up incomplete multipart uploads after 7 days.
+5. Wrote a bucket policy that denies every request not made over HTTPS (`aws:SecureTransport` is `false`) and saved it in `Labs/s3/deny-insecure-transport.json`.
+6. Tore down the bucket with Empty, then Delete.
+
+### Verification
+| Check | Result |
+|---|---|
+| Policy applied to the bucket in the console | Done |
+| Opening an object from the console (HTTPS) | Still worked, so the Deny didn't lock me out |
+| Plain HTTP request returning 403 AccessDenied | Not tested yet: CloudShell was unavailable while my account verification was in progress |
+
+### Problems I faced and lessons
+| Problem | Cause | Lesson |
+|---|---|---|
+| My first uploaded file disappeared and I found no delete marker | With Show versions on, I selected a specific version and deleted it, which is a permanent delete | A normal delete (Show versions off) adds a delete marker and is recoverable. Deleting a specific version is permanent. Production teams restrict `s3:DeleteObjectVersion` on important buckets. |
+| Lifecycle form showed red errors | I chose "Limit the scope using filters" without entering any filter | Choose "Apply to all objects", or provide a prefix, tag or size filter |
+| Bucket policy was missing a Principal | I built it in the IAM visual editor, which makes identity-based policies | Resource-based policies need a `Principal`. `"*"` is safe with a Deny. |
+| Console showed "Errors: 1" | The final closing `}` was missing after pasting | Count brackets, check the error counter, and write files with `cat > file << 'EOF'` so copying can't drop the last line |
+| CloudShell would not start | Account verification still in progress (up to two days for new accounts) | Not a mistake. Retry later, and run the HTTP test then. |
+
+### Key takeaways
+- Versioning plus a delete marker means "deleted" can still be recovered. Deleting a specific version cannot be undone.
+- A lifecycle rule needs a scope, and "all objects" is a deliberate choice.
+- Deny always beats Allow.
+- A condition is built from three layers: operator, key, value.
+- Bucket-level and object-level actions need both the bucket ARN and the `/*` ARN.
+
+### To do
+- Run the HTTP test once CloudShell is available:
+  `aws s3api head-object --bucket <bucket> --key <file> --endpoint-url http://s3.<region>.amazonaws.com --region <region>`
+  Expected result: 403 AccessDenied.
